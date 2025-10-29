@@ -529,20 +529,30 @@ def execute_trade(signal_data, price_data):
                 )
                 time.sleep(1)
                 # 开多仓
+                params = {
+                    'stopLoss': {'price': signal_data['stop_loss']},
+                    'takeProfit': {'price': signal_data['take_profit']}
+                }
                 exchange.create_market_order(
                     TRADE_CONFIG['symbol'],
                     'buy',
-                    TRADE_CONFIG['amount']
+                    TRADE_CONFIG['amount'],
+                    params=params
                 )
             elif current_position and current_position['side'] == 'long':
                 print("已有多头持仓，保持现状")
             else:
                 # 无持仓时开多仓
                 print("开多仓...")
+                params = {
+                    'stopLoss': {'price': signal_data['stop_loss']},
+                    'takeProfit': {'price': signal_data['take_profit']}
+                }
                 exchange.create_market_order(
                     TRADE_CONFIG['symbol'],
                     'buy',
-                    TRADE_CONFIG['amount']*100
+                    TRADE_CONFIG['amount']*100,
+                    params=params
                 )
 
         elif signal_data['signal'] == 'SELL':
@@ -557,20 +567,30 @@ def execute_trade(signal_data, price_data):
                 )
                 time.sleep(1)
                 # 开空仓
+                params = {
+                    'stopLoss': {'price': signal_data['stop_loss']},
+                    'takeProfit': {'price': signal_data['take_profit']}
+                }
                 exchange.create_market_order(
                     TRADE_CONFIG['symbol'],
                     'sell',
-                    TRADE_CONFIG['amount']*100
+                    TRADE_CONFIG['amount']*100,
+                    params=params
                 )
             elif current_position and current_position['side'] == 'short':
                 print("已有空头持仓，保持现状")
             else:
                 # 无持仓时开空仓
                 print("开空仓...")
+                params = {
+                    'stopLoss': {'price': signal_data['stop_loss']},
+                    'takeProfit': {'price': signal_data['take_profit']}
+                }
                 exchange.create_market_order(
                     TRADE_CONFIG['symbol'],
                     'sell',
-                    TRADE_CONFIG['amount']*100
+                    TRADE_CONFIG['amount']*100,
+                    params=params
                 )
 
         print("订单执行成功")

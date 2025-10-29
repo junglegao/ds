@@ -31,10 +31,10 @@ exchange = ccxt.okx({
 TRADE_CONFIG = {
     'symbol': 'BTC/USDT:USDT',  # OKX的合约符号格式
     'amount': 0.01,  # 交易数量 (BTC)
-    'leverage': 10,  # 杠杆倍数
-    'timeframe': '15m',  # 使用15分钟K线
+    'leverage': 20,  # 杠杆倍数
+    'timeframe': '5m',  # 使用5分钟K线
     'test_mode': False,  # 测试模式
-    'data_points': 96,  # 24小时数据（96根15分钟K线）
+    'data_points': 288 ,  # 24小时数据（96根15分钟K线）
     'analysis_periods': {
         'short_term': 20,  # 短期均线
         'medium_term': 50,  # 中期均线
@@ -525,15 +525,14 @@ def execute_trade(signal_data, price_data):
                     TRADE_CONFIG['symbol'],
                     'buy',
                     current_position['size'],
-                    params={'reduceOnly': True, 'tag': '60bb4a8d3416BCDE'}
+                    params={'reduceOnly': True}
                 )
                 time.sleep(1)
                 # 开多仓
                 exchange.create_market_order(
                     TRADE_CONFIG['symbol'],
                     'buy',
-                    TRADE_CONFIG['amount'],
-                    params={'tag': 'f1ee03b510d5SUDE'}
+                    TRADE_CONFIG['amount']
                 )
             elif current_position and current_position['side'] == 'long':
                 print("已有多头持仓，保持现状")
@@ -543,8 +542,7 @@ def execute_trade(signal_data, price_data):
                 exchange.create_market_order(
                     TRADE_CONFIG['symbol'],
                     'buy',
-                    TRADE_CONFIG['amount'],
-                    params={'tag': 'f1ee03b510d5SUDE'}
+                    TRADE_CONFIG['amount']*100
                 )
 
         elif signal_data['signal'] == 'SELL':
@@ -555,15 +553,14 @@ def execute_trade(signal_data, price_data):
                     TRADE_CONFIG['symbol'],
                     'sell',
                     current_position['size'],
-                    params={'reduceOnly': True, 'tag': 'f1ee03b510d5SUDE'}
+                    params={'reduceOnly': True}
                 )
                 time.sleep(1)
                 # 开空仓
                 exchange.create_market_order(
                     TRADE_CONFIG['symbol'],
                     'sell',
-                    TRADE_CONFIG['amount'],
-                    params={'tag': 'f1ee03b510d5SUDE'}
+                    TRADE_CONFIG['amount']*100
                 )
             elif current_position and current_position['side'] == 'short':
                 print("已有空头持仓，保持现状")
@@ -573,8 +570,7 @@ def execute_trade(signal_data, price_data):
                 exchange.create_market_order(
                     TRADE_CONFIG['symbol'],
                     'sell',
-                    TRADE_CONFIG['amount'],
-                    params={'tag': 'f1ee03b510d5SUDE'}
+                    TRADE_CONFIG['amount']*100
                 )
 
         print("订单执行成功")
@@ -608,43 +604,7 @@ def analyze_with_deepseek_with_retry(price_data, max_retries=2):
     return create_fallback_signal(price_data)
 
 
-def wait_for_next_period():
-    """等待到下一个15分钟整点"""
-    now = datetime.now()
-    current_minute = now.minute
-    current_second = now.second
-
-    # 计算下一个整点时间（00, 15, 30, 45分钟）
-    next_period_minute = ((current_minute // 15) + 1) * 15
-    if next_period_minute == 60:
-        next_period_minute = 0
-
-    # 计算需要等待的总秒数
-    if next_period_minute > current_minute:
-        minutes_to_wait = next_period_minute - current_minute
-    else:
-        minutes_to_wait = 60 - current_minute + next_period_minute
-
-    seconds_to_wait = minutes_to_wait * 60 - current_second
-
-    # 显示友好的等待时间
-    display_minutes = minutes_to_wait - 1 if current_second > 0 else minutes_to_wait
-    display_seconds = 60 - current_second if current_second > 0 else 0
-
-    if display_minutes > 0:
-        print(f"🕒 等待 {display_minutes} 分 {display_seconds} 秒到整点...")
-    else:
-        print(f"🕒 等待 {display_seconds} 秒到整点...")
-
-    return seconds_to_wait
-
-
 def trading_bot():
-    # 等待到整点再执行
-    wait_seconds = wait_for_next_period()
-    if wait_seconds > 0:
-        time.sleep(wait_seconds)
-
     """主交易机器人函数"""
     print("\n" + "=" * 60)
     print(f"执行时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -687,14 +647,27 @@ def main():
         print("交易所初始化失败，程序退出")
         return
 
-    print("执行频率: 每15分钟整点执行")
+    # 根据时间周期设置执行频率
+    if TRADE_CONFIG['timeframe'] == '1h':
+        schedule.every().hour.at(":01").do(trading_bot)
+        print("执行频率: 每小时一次")
+    elif TRADE_CONFIG['timeframe'] == '15m':
+        schedule.every(15).minutes.do(trading_bot)
+        print("执行频率: 每15分钟一次")
+    elif TRADE_CONFIG['timeframe'] == '5m':
+        schedule.every(5).minutes.do(trading_bot)
+        print("执行频率: 每5分钟一次")
+    else:
+        schedule.every().hour.at(":01").do(trading_bot)
+        print("执行频率: 每小时一次")
 
-    # 循环执行（不使用schedule）
+    # 立即执行一次
+    trading_bot()
+
+    # 循环执行
     while True:
-        trading_bot()  # 函数内部会自己等待整点
-
-        # 执行完后等待一段时间再检查（避免频繁循环）
-        time.sleep(60)  # 每分钟检查一次
+        schedule.run_pending()
+        time.sleep(1)
 
 
 if __name__ == "__main__":
